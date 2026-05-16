@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: petrol-allowance-management
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: DATA_DIR
+        value: data
+      - key: RATE_PER_KM
+        value: 3
+      - key: MAX_BACKDATED_DAYS
+        value: 3
+    disk:
+      name: petrol-allowance-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

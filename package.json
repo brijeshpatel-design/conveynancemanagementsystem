@@ -1,0 +1,13 @@
+{
+  "name": "petrol-allowance-management",
+  "version": "1.0.0",
+  "description": "Petrol allowance claim management system for EPC employees.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "UNLICENSED"
+}
