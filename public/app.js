@@ -16,6 +16,7 @@ const tabs = {
   admin: [
     ["claims", "Claims"],
     ["employees", "Employees"],
+    ["master", "Master Data"],
     ["settings", "Settings"],
     ["reports", "Reports"],
     ["audit", "Audit"]
@@ -195,6 +196,7 @@ function renderShell() {
 function renderCurrentTab() {
   const role = state.data.user.role;
   if (role === "admin" && state.tab === "employees") return renderEmployees();
+  if (role === "admin" && state.tab === "master") return renderMasterData();
   if (role === "admin" && state.tab === "settings") return renderSettings();
   if (role === "admin" && state.tab === "audit") return renderAudit();
   if (state.tab === "reports") return renderReports();
@@ -323,11 +325,17 @@ function renderEmployeeClaims() {
               </select>
             </label>
             <label>Project Code
-              <input name="projectCode" placeholder="e.g. PROJ-001" required>
+              <select name="projectCode" required>
+                <option value="">Select Project</option>
+                ${(state.data.projects || []).map(p => `<option value="${escapeHtml(p.code)}">${escapeHtml(p.code)} - ${escapeHtml(p.name)}</option>`).join("")}
+              </select>
             </label>
           </div>
           <label>Site
-            <input name="site" value="${escapeHtml(user.site || "")}" required>
+            <select name="site" required>
+              <option value="">Select Site</option>
+              ${(state.data.sites || []).map(s => `<option value="${escapeHtml(s.name)}" ${s.name === user.site ? "selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}
+            </select>
           </label>
           <label>Purpose
             <input name="purpose" required>
@@ -607,6 +615,91 @@ function renderReportPanel(report) {
   `;
 }
 
+function renderMasterData() {
+  return `
+    <div class="page-head">
+      <div>
+        <h2>Master Data</h2>
+        <p>Manage Projects, Sites, and Routes</p>
+      </div>
+    </div>
+    <div class="grid two-col">
+      <div class="panel">
+        <h3>Add Project</h3>
+        <form class="form-grid" data-form="master" data-type="projects">
+          <label>Project Code
+            <input name="code" placeholder="PROJ-001" required>
+          </label>
+          <label>Project Name
+            <input name="name" placeholder="North Zone Shifting" required>
+          </label>
+          <button class="primary" type="submit">Add Project</button>
+        </form>
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--line);">
+        <h3>Add Site</h3>
+        <form class="form-grid" data-form="master" data-type="sites">
+          <label>Site Name
+            <input name="name" placeholder="Substation A" required>
+          </label>
+          <button class="primary" type="submit">Add Site</button>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Add Route Reference</h3>
+        <form class="form-grid" data-form="master" data-type="routes">
+          <div class="field-row">
+            <label>From
+              <input name="from" placeholder="Office" required>
+            </label>
+            <label>To
+              <input name="to" placeholder="Site A" required>
+            </label>
+          </div>
+          <label>Standard KM
+            <input name="km" type="number" min="0.1" step="0.1" required>
+          </label>
+          <button class="primary" type="submit">Add Route</button>
+        </form>
+      </div>
+    </div>
+    <div class="grid three-col" style="margin-top: 20px;">
+       <div class="panel">
+         <h4>Projects</h4>
+         <div class="table-wrap" style="min-width: 0;">
+           <table style="min-width: 0;">
+             <thead><tr><th>Code</th><th>Action</th></tr></thead>
+             <tbody>
+               ${(state.data.projects || []).map(p => `<tr><td>${escapeHtml(p.code)}</td><td><button data-action="delete-master" data-type="projects" data-id="${p.id}">X</button></td></tr>`).join("")}
+             </tbody>
+           </table>
+         </div>
+       </div>
+       <div class="panel">
+         <h4>Sites</h4>
+         <div class="table-wrap" style="min-width: 0;">
+           <table style="min-width: 0;">
+             <thead><tr><th>Name</th><th>Action</th></tr></thead>
+             <tbody>
+               ${(state.data.sites || []).map(s => `<tr><td>${escapeHtml(s.name)}</td><td><button data-action="delete-master" data-type="sites" data-id="${s.id}">X</button></td></tr>`).join("")}
+             </tbody>
+           </table>
+         </div>
+       </div>
+       <div class="panel">
+         <h4>Routes</h4>
+         <div class="table-wrap" style="min-width: 0;">
+           <table style="min-width: 0;">
+             <thead><tr><th>Route</th><th>KM</th><th>Action</th></tr></thead>
+             <tbody>
+               ${(state.data.routes || []).map(r => `<tr><td>${escapeHtml(r.from)} - ${escapeHtml(r.to)}</td><td>${r.km}</td><td><button data-action="delete-master" data-type="routes" data-id="${r.id}">X</button></td></tr>`).join("")}
+             </tbody>
+           </table>
+         </div>
+       </div>
+    </div>
+  `;
+}
+
 function renderAudit() {
   const logs = state.data.auditLogs || [];
   return `
@@ -692,11 +785,15 @@ function renderClaimModal() {
               </select>
             </label>
             <label>Project Code
-              <input name="projectCode" value="${escapeHtml(claim.projectCode || "")}" required>
+              <select name="projectCode" required>
+                ${(state.data.projects || []).map(p => `<option value="${escapeHtml(p.code)}" ${p.code === claim.projectCode ? "selected" : ""}>${escapeHtml(p.code)} - ${escapeHtml(p.name)}</option>`).join("")}
+              </select>
             </label>
           </div>
           <label>Site
-            <input name="site" value="${escapeHtml(claim.site)}" required>
+            <select name="site" required>
+              ${(state.data.sites || []).map(s => `<option value="${escapeHtml(s.name)}" ${s.name === claim.site ? "selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}
+            </select>
           </label>
           <label>Purpose
             <input name="purpose" value="${escapeHtml(claim.purpose)}" required>
@@ -812,6 +909,21 @@ async function submitEmployeeEdit(form) {
   toast("Employee updated.");
 }
 
+async function submitMasterData(form) {
+  const type = form.dataset.type;
+  await api(`/api/master/${type}`, { method: "POST", body: formJson(form) });
+  form.reset();
+  await loadData();
+  toast(`${titleCase(type)} added.`);
+}
+
+async function deleteMasterData(type, id) {
+  if (!window.confirm("Delete this entry?")) return;
+  await api(`/api/master/${type}?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  await loadData();
+  toast("Entry deleted.");
+}
+
 async function updateClaimStatus(id, status) {
   const body = { status };
   if (status === "rejected") {
@@ -868,6 +980,7 @@ document.addEventListener("submit", async (event) => {
     if (type === "settings") await submitSettings(form);
     if (type === "claim-edit") await submitClaimEdit(form);
     if (type === "employee-edit") await submitEmployeeEdit(form);
+    if (type === "master") await submitMasterData(form);
   } catch (error) {
     toast(error.message);
   }
@@ -909,6 +1022,7 @@ document.addEventListener("click", async (event) => {
       render();
     }
     if (action === "deactivate-employee") await deactivateEmployee(button.dataset.id);
+    if (action === "delete-master") await deleteMasterData(button.dataset.type, button.dataset.id);
     if (action === "close-modal") {
       state.modal = null;
       render();

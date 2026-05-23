@@ -405,6 +405,10 @@ tr:last-child td {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.three-col {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
