@@ -245,7 +245,7 @@ function seedDb() {
     maxBackdatedDays: numeric(process.env.MAX_BACKDATED_DAYS, 3),
     duplicatePolicy: "warn",
     dailyKmLimit: 120,
-    companyName: "EPC Petrol Allowance",
+    companyName: "Electrical Infra EPC",
     currency: "INR"
   };
   const claimOne = {
@@ -254,7 +254,9 @@ function seedDb() {
     date: addDays(today, -1),
     from: "Site Office",
     to: "Substation Yard",
-    site: "Solar EPC Site A",
+    site: "Substation A",
+    workType: "Maintenance",
+    projectCode: "PROJ-SH-001",
     purpose: "Material coordination",
     remarks: "Vendor follow-up",
     km: 38,
@@ -271,7 +273,9 @@ function seedDb() {
     date: addDays(today, -2),
     from: "Warehouse",
     to: "Site Office",
-    site: "Solar EPC Site A",
+    site: "Infrastructure Site B",
+    workType: "Shifting",
+    projectCode: "PROJ-DEV-002",
     purpose: "Document pickup",
     remarks: "",
     km: 22,
@@ -425,6 +429,8 @@ function validationForClaim(db, input, employeeId, existingClaimId = null) {
   const from = String(input.from || "").trim();
   const to = String(input.to || "").trim();
   const site = String(input.site || "").trim();
+  const workType = String(input.workType || "").trim();
+  const projectCode = String(input.projectCode || "").trim();
   const purpose = String(input.purpose || "").trim();
   const remarks = String(input.remarks || "").trim();
   const km = numeric(input.km, NaN);
@@ -433,6 +439,8 @@ function validationForClaim(db, input, employeeId, existingClaimId = null) {
   if (!from) errors.push("Enter the start location.");
   if (!to) errors.push("Enter the destination.");
   if (!site) errors.push("Enter the site.");
+  if (!workType) errors.push("Select the type of work.");
+  if (!projectCode) errors.push("Enter the project code.");
   if (!purpose) errors.push("Enter the purpose.");
   if (!Number.isFinite(km) || km <= 0) errors.push("Enter KM greater than zero.");
   if (km > 500) errors.push("KM cannot exceed 500 for a single claim.");
@@ -484,6 +492,8 @@ function validationForClaim(db, input, employeeId, existingClaimId = null) {
       from,
       to,
       site,
+      workType,
+      projectCode,
       purpose,
       remarks,
       km,
@@ -516,7 +526,7 @@ function reportForEmployee(db, employeeId, month) {
 
 function claimsRows(claims) {
   return [
-    ["Date", "Employee", "Email", "Department", "From", "To", "Site", "Purpose", "KM", "Rate", "Amount", "Status", "Alerts", "Remarks"],
+    ["Date", "Employee", "Email", "Department", "From", "To", "Site", "Work Type", "Project Code", "Purpose", "KM", "Rate", "Amount", "Status", "Alerts", "Remarks"],
     ...claims.map((claim) => [
       claim.date,
       claim.employeeName,
@@ -525,6 +535,8 @@ function claimsRows(claims) {
       claim.from,
       claim.to,
       claim.site,
+      claim.workType || "",
+      claim.projectCode || "",
       claim.purpose,
       claim.km,
       claim.rate,

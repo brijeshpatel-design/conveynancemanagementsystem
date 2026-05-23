@@ -311,6 +311,21 @@ function renderEmployeeClaims() {
               <input name="to" required>
             </label>
           </div>
+          <div class="field-row">
+            <label>Work Type
+              <select name="workType" required>
+                <option value="">Select Work Type</option>
+                <option value="Shifting">Shifting</option>
+                <option value="Development">Development</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Survey">Survey</option>
+                <option value="Emergency">Emergency</option>
+              </select>
+            </label>
+            <label>Project Code
+              <input name="projectCode" placeholder="e.g. PROJ-001" required>
+            </label>
+          </div>
           <label>Site
             <input name="site" value="${escapeHtml(user.site || "")}" required>
           </label>
@@ -353,7 +368,8 @@ function renderClaimTable(claims, admin) {
             <th>Date</th>
             ${admin ? "<th>Employee</th>" : ""}
             <th>Route</th>
-            <th>Site</th>
+            <th>Project / Site</th>
+            <th>Work Type</th>
             <th>Purpose</th>
             <th>KM</th>
             <th>Amount</th>
@@ -371,7 +387,8 @@ function renderClaimTable(claims, admin) {
                   <td>${escapeHtml(claim.date)}</td>
                   ${admin ? `<td><strong>${escapeHtml(claim.employeeName)}</strong><br><span class="muted">${escapeHtml(claim.employeeEmail)}</span></td>` : ""}
                   <td>${escapeHtml(claim.from)}<br><span class="muted">${escapeHtml(claim.to)}</span></td>
-                  <td>${escapeHtml(claim.site)}</td>
+                  <td><strong>${escapeHtml(claim.projectCode || "N/A")}</strong><br><span class="muted">${escapeHtml(claim.site)}</span></td>
+                  <td><span class="work-type-pill">${escapeHtml(claim.workType || "N/A")}</span></td>
                   <td>${escapeHtml(claim.purpose)}${claim.remarks ? `<br><span class="muted">${escapeHtml(claim.remarks)}</span>` : ""}</td>
                   <td>${money(claim.km)}</td>
                   <td>${money(claim.amount)}</td>
@@ -664,6 +681,18 @@ function renderClaimModal() {
             </label>
             <label>To
               <input name="to" value="${escapeHtml(claim.to)}" required>
+            </label>
+          </div>
+          <div class="field-row">
+            <label>Work Type
+              <select name="workType" required>
+                ${["Shifting", "Development", "Maintenance", "Survey", "Emergency"]
+                  .map((type) => `<option value="${type}" ${claim.workType === type ? "selected" : ""}>${type}</option>`)
+                  .join("")}
+              </select>
+            </label>
+            <label>Project Code
+              <input name="projectCode" value="${escapeHtml(claim.projectCode || "")}" required>
             </label>
           </div>
           <label>Site
