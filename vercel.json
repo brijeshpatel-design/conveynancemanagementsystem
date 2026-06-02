@@ -1,7 +1,12 @@
 {
   "buildCommand": "npm install",
-  "outputDirectory": "public",
   "framework": "node",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/handler.js"
+    }
+  ],
   "env": {
     "APP_TIMEZONE": "Asia/Kolkata",
     "DATA_DIR": "/tmp/data",
