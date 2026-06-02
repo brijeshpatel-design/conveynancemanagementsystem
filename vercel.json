@@ -1,7 +1,7 @@
 {
   "buildCommand": "npm install",
   "outputDirectory": "public",
-  "framework": "nodejs",
+  "framework": "node",
   "env": {
     "APP_TIMEZONE": "Asia/Kolkata",
     "DATA_DIR": "/tmp/data",
