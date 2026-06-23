@@ -245,7 +245,7 @@ function seedDb() {
     maxBackdatedDays: numeric(process.env.MAX_BACKDATED_DAYS, 3),
     duplicatePolicy: "warn",
     dailyKmLimit: 120,
-    companyName: "EPC Petrol Allowance",
+    companyName: "Electrical Infra EPC",
     currency: "INR"
   };
   const claimOne = {
@@ -254,7 +254,9 @@ function seedDb() {
     date: addDays(today, -1),
     from: "Site Office",
     to: "Substation Yard",
-    site: "Solar EPC Site A",
+    site: "Substation A",
+    workType: "Maintenance",
+    projectCode: "PROJ-SH-001",
     purpose: "Material coordination",
     remarks: "Vendor follow-up",
     km: 38,
@@ -271,7 +273,9 @@ function seedDb() {
     date: addDays(today, -2),
     from: "Warehouse",
     to: "Site Office",
-    site: "Solar EPC Site A",
+    site: "Infrastructure Site B",
+    workType: "Shifting",
+    projectCode: "PROJ-DEV-002",
     purpose: "Document pickup",
     remarks: "",
     km: 22,
@@ -288,6 +292,22 @@ function seedDb() {
     version: 1,
     createdAt,
     settings,
+    projects: [
+      { id: id("prj"), code: "PROJ-SH-001", name: "Shifting - North Zone" },
+      { id: id("prj"), code: "PROJ-DEV-002", name: "Development - South Sector" },
+      { id: id("prj"), code: "PROJ-MAIN-003", name: "Annual Maintenance" }
+    ],
+    sites: [
+      { id: id("ste"), name: "Substation A" },
+      { id: id("ste"), name: "Substation B" },
+      { id: id("ste"), name: "Infrastructure Site B" },
+      { id: id("ste"), name: "Yard Office" }
+    ],
+    routes: [
+      { id: id("rte"), from: "Site Office", to: "Substation Yard", km: 38 },
+      { id: id("rte"), from: "Warehouse", to: "Site Office", km: 22 },
+      { id: id("rte"), from: "Substation A", to: "Substation B", km: 15 }
+    ],
     users,
     claims: [claimOne, claimTwo],
     auditLogs: [
@@ -425,6 +445,8 @@ function validationForClaim(db, input, employeeId, existingClaimId = null) {
   const from = String(input.from || "").trim();
   const to = String(input.to || "").trim();
   const site = String(input.site || "").trim();
+  const workType = String(input.workType || "").trim();
+  const projectCode = String(input.projectCode || "").trim();
   const purpose = String(input.purpose || "").trim();
   const remarks = String(input.remarks || "").trim();
   const km = numeric(input.km, NaN);
@@ -433,11 +455,32 @@ function validationForClaim(db, input, employeeId, existingClaimId = null) {
   if (!from) errors.push("Enter the start location.");
   if (!to) errors.push("Enter the destination.");
   if (!site) errors.push("Enter the site.");
+  if (!workType) errors.push("Select the type of work.");
+  if (!projectCode) errors.push("Enter the project code.");
   if (!purpose) errors.push("Enter the purpose.");
   if (!Number.isFinite(km) || km <= 0) errors.push("Enter KM greater than zero.");
   if (km > 500) errors.push("KM cannot exceed 500 for a single claim.");
 
   if (!errors.length) {
+    const validProject = (db.projects || []).some((p) => p.code === projectCode);
+    if (!validProject) errors.push(`Invalid Project Code: ${projectCode}`);
+
+    const validSite = (db.sites || []).some((s) => s.name === site);
+    if (!validSite) errors.push(`Invalid Site: ${site}`);
+
+    const referenceRoute = (db.routes || []).find(
+      (r) =>
+        (r.from.toLowerCase() === from.toLowerCase() && r.to.toLowerCase() === to.toLowerCase()) ||
+        (r.from.toLowerCase() === to.toLowerCase() && r.to.toLowerCase() === from.toLowerCase())
+    );
+    if (referenceRoute) {
+      const diff = Math.abs(km - referenceRoute.km);
+      const tolerance = referenceRoute.km * 0.2; // 20% tolerance
+      if (diff > tolerance) {
+        alerts.push(`KM discrepancy: Reference for this route is ${referenceRoute.km} KM.`);
+      }
+    }
+
     const age = diffDaysFromToday(date);
     if (age < 0) errors.push("Future claim dates are not allowed.");
     if (age > settings.maxBackdatedDays) {
@@ -484,6 +527,8 @@ function validationForClaim(db, input, employeeId, existingClaimId = null) {
       from,
       to,
       site,
+      workType,
+      projectCode,
       purpose,
       remarks,
       km,
@@ -516,7 +561,7 @@ function reportForEmployee(db, employeeId, month) {
 
 function claimsRows(claims) {
   return [
-    ["Date", "Employee", "Email", "Department", "From", "To", "Site", "Purpose", "KM", "Rate", "Amount", "Status", "Alerts", "Remarks"],
+    ["Date", "Employee", "Email", "Department", "From", "To", "Site", "Work Type", "Project Code", "Purpose", "KM", "Rate", "Amount", "Status", "Alerts", "Remarks"],
     ...claims.map((claim) => [
       claim.date,
       claim.employeeName,
@@ -525,6 +570,8 @@ function claimsRows(claims) {
       claim.from,
       claim.to,
       claim.site,
+      claim.workType || "",
+      claim.projectCode || "",
       claim.purpose,
       claim.km,
       claim.rate,
@@ -580,6 +627,9 @@ async function routeBootstrap(ctx, res) {
   const payload = {
     user: publicUser(db.users.find((user) => user.id === ctx.user.id)),
     settings: safeSettings(db.settings),
+    projects: db.projects || [],
+    sites: db.sites || [],
+    routes: db.routes || [],
     employees: ctx.user.role === "admin" ? employees : employees.filter((user) => user.id === ctx.user.id),
     claims: visibleClaims(db, ctx.user),
     auditLogs: ctx.user.role === "admin" ? db.auditLogs.slice(0, 250) : [],
@@ -831,6 +881,38 @@ async function routeAudit(ctx, req, res) {
   sendJson(res, 200, { auditLogs: db.auditLogs.slice(0, 500) });
 }
 
+async function routeMasterData(ctx, req, res, type) {
+  assertAdmin(ctx);
+  const collectionKey = { projects: "projects", sites: "sites", routes: "routes" }[type];
+  if (!collectionKey) return sendError(res, 404, "Invalid master data type.");
+
+  if (req.method === "POST") {
+    const body = await readBody(req);
+    const item = await updateDb((db) => {
+      if (!db[collectionKey]) db[collectionKey] = [];
+      const newItem = { id: id(type.slice(0, 3)), ...body };
+      db[collectionKey].push(newItem);
+      audit(db, ctx.user, "create", type, newItem.id, `Created ${type} entry`);
+      return newItem;
+    });
+    return sendJson(res, 201, { item });
+  }
+
+  if (req.method === "DELETE") {
+    const itemId = new URL(req.url, "http://localhost").searchParams.get("id");
+    await updateDb((db) => {
+      const index = (db[collectionKey] || []).findIndex((i) => i.id === itemId);
+      if (index !== -1) {
+        const [removed] = db[collectionKey].splice(index, 1);
+        audit(db, ctx.user, "delete", type, removed.id, `Deleted ${type} entry`);
+      }
+    });
+    return sendJson(res, 200, { ok: true });
+  }
+
+  sendError(res, 405, "Method not allowed.");
+}
+
 async function routeMonthlyReport(ctx, req, res, url, format) {
   assertAuth(ctx);
   const db = await readDb();
@@ -894,6 +976,9 @@ async function handleApi(req, res, url) {
   if (url.pathname.startsWith("/api/employees/")) return routeEmployeeById(ctx, req, res, decodeURIComponent(url.pathname.split("/").pop()));
   if (url.pathname === "/api/settings") return routeSettings(ctx, req, res);
   if (url.pathname === "/api/audit") return routeAudit(ctx, req, res);
+  if (url.pathname.startsWith("/api/master/")) {
+    return routeMasterData(ctx, req, res, url.pathname.split("/").pop());
+  }
   if (url.pathname === "/api/reports/monthly") return routeMonthlyReport(ctx, req, res, url);
   if (url.pathname === "/api/reports/monthly.csv") return routeMonthlyReport(ctx, req, res, url, "csv");
   if (url.pathname === "/api/reports/monthly.xls") return routeMonthlyReport(ctx, req, res, url, "xls");
